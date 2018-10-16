@@ -1,0 +1,3 @@
+requires:
+  vault:
+    interface: vault-kv

@@ -1,1 +1,54 @@
 # VaultLocker Base Layer
+
+This layer manages integration with VaultLocker to automatically encrypt
+block devices and automatically unlocking them at boot.
+
+# Usage
+
+## Using Juju Storage Annotations
+
+The easiest way to use this layer is to define a block device storage
+entry in your `metadata.yaml` and annotate it to be encrypted:
+
+```yaml
+storage:
+  secrets:
+    type: block
+    vaultlocker-encrypt: true
+    vaultlocker-mountbase: /mnt/myapp
+```
+
+With that, as long as Vault is related to your charm via the `vault` relataion
+provided by this layer, the `secrets` device will automatically be encrypted
+and an XFS filesystem created on it which will then mounted at
+`/mnt/myapp/secrets`.
+
+
+## Using the Library
+
+Alternatively, you can manually encrypt a storage entry or arbitrary block
+device using the library:
+
+```python
+from charms.reactive import when_all, when_not, set_flag
+
+from charms.layer import vaultlocker
+
+
+@when_all('config.set.encrypt',
+          'layer.vaultlocker.ready')
+@when_not('charm.foo.encrypted')
+def encrypt():
+    vaultlocker.encrypt_storage('secrets', mountbase='/mnt/myapp')
+    device_name = '/dev/sdd1'
+    vaultlocker.encrypt_device(device_name)
+    decrypted_device_name = vaultlocker.decrypted_device(device_name)
+    # use the decrypted_device_name in place of device_name
+    set_flag('charm.foo.encrypted')
+```
+
+
+# Reference
+
+More details can be found in the [docs](docs/vaultlocker.md).
+>>>>>>> Stashed changes
