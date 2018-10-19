@@ -7,7 +7,7 @@ options:
     packages:
       - vaultlocker
 proof:
-  resources:
+  storage:
     - name: vaultlocker-encrypt
       type: Boolean
       missing: false
