@@ -2,6 +2,7 @@ from pathlib import Path
 from subprocess import check_call
 from uuid import uuid4
 
+from charms.reactive import set_flag
 from charmhelpers.core import hookenv
 from charmhelpers.core import host
 from charmhelpers.core import unitdata
@@ -50,6 +51,8 @@ def encrypt_storage(storage_name, mountbase=None):
         else:
             mountpoint = None
         encrypt_device(storage_location, mountpoint)
+        set_flag('layer.vaultlocker.{}.ready'.format(storage_id))
+    set_flag('layer.vaultlocker.{}.ready'.format(storage_name))
 
 
 def encrypt_device(device, mountpoint=None):
