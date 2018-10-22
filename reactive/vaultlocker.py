@@ -10,10 +10,11 @@ from charms.layer import vaultlocker
 @when_all('vault.connected')
 @when_not('layer.vaultlocker.requested')
 def request_vault():
-    vault = endpoint_from_flag('vault.available')
+    vault = endpoint_from_flag('vault.connected')
     app_name = hookenv.application_name()
-    secret_backend = 'vaultlocker-{}'.format(app_name)
+    secret_backend = 'charm-vaultlocker-{}'.format(app_name)
     vault.request_secret_backend(secret_backend)
+    set_flag('layer.vaultlocker.requested')
 
 
 @when_all('apt.installed.vaultlocker',
@@ -25,11 +26,15 @@ def configure_vaultlocker():
     role_id = vault.unit_role_id
     token = vault.unit_token
     app_name = hookenv.application_name()
-    secret_backend = 'vaultlocker-{}'.format(app_name)
+    secret_backend = 'charm-vaultlocker-{}'.format(app_name)
     if data_changed('layer.vaultlocker.token', token):
-        # fetch new secret ID
+        # fetch new secret ID (have to flush immediately because if we don't
+        # and hit some error elsewhere, it could get us into a state where we
+        # have forgotten the secret ID and can't retrieve it again because
+        # we've already used the token)
         secret_id = vaultlocker.retrieve_secret_id(vault_url, token)
         unitdata.kv().set('layer.vaultlocker.secret_id', secret_id)
+        unitdata.kv().flush()
     else:
         secret_id = unitdata.kv().get('layer.vaultlocker.secret_id')
     vaultlocker.write_vaultlocker_conf({

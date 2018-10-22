@@ -69,13 +69,18 @@ def encrypt_device(device, mountpoint=None):
         raise ValueError('Cannot encrypt non-block device: {}'.format(device))
     if is_device_mounted(device):
         raise ValueError('Cannot encrypt mounted device: {}'.format(device))
-    uuid = uuid4()
+    hookenv.log('Encrypting device: {}'.format(device))
+    uuid = str(uuid4())
     check_call(['vaultlocker', 'encrypt', '--uuid', uuid, device])
     unitdata.kv().update({device: uuid}, prefix='layer.vaultlocker.uuids.')
     if mountpoint:
-        mkfs_xfs(decrypted_device(device))
-        Path(mountpoint).mkdir(mode=0o755, parents=True, exist_ok=True)
         mapped_device = decrypted_device(device)
+        hookenv.log('Creating filesystem on {} ({})'.format(mapped_device,
+                                                            device))
+        mkfs_xfs(mapped_device)
+        Path(mountpoint).mkdir(mode=0o755, parents=True, exist_ok=True)
+        hookenv.log('Mounting filesystem for {} ({}) at {}'
+                    ''.format(mapped_device, device, mountpoint))
         host.mount(mapped_device, mountpoint, filesystem='xfs')
         host.fstab_add(mapped_device, mountpoint, 'xfs', ','.join([
             "defaults",
