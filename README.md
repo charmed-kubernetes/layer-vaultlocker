@@ -41,7 +41,7 @@ from charms.layer import vaultlocker
 def encrypt():
     vaultlocker.encrypt_storage('secrets', mountbase='/mnt/myapp')
     device_name = '/dev/sdd1'
-    vaultlocker.encrypt_device(device_name)
+    vaultlocker.encrypt_device(device_name, mountpoint='/mnt/mysecrets')
     decrypted_device_name = vaultlocker.decrypted_device(device_name)
     # use the decrypted_device_name in place of device_name
     set_flag('charm.foo.encrypted')

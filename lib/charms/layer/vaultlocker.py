@@ -72,7 +72,7 @@ def encrypt_device(device, mountpoint=None):
     hookenv.log('Encrypting device: {}'.format(device))
     uuid = str(uuid4())
     check_call(['vaultlocker', 'encrypt', '--uuid', uuid, device])
-    unitdata.kv().update({device: uuid}, prefix='layer.vaultlocker.uuids.')
+    unitdata.kv().set('layer.vaultlocker.uuids.{}'.format(device), uuid)
     if mountpoint:
         mapped_device = decrypted_device(device)
         hookenv.log('Creating filesystem on {} ({})'.format(mapped_device,
@@ -99,7 +99,7 @@ def decrypted_device(device):
 
     This mapped device name is what should be used for mounting the device.
     """
-    uuid = unitdata.kv().getrange('layer.vaultlocker.uuids.').get(device)
+    uuid = unitdata.kv().get('layer.vaultlocker.uuids.{}'.format(device))
     if not uuid:
         return None
     return '/dev/mapper/crypt-{uuid}'.format(uuid=uuid)
