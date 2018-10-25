@@ -52,7 +52,7 @@ def encrypt_storage(storage_name, mountbase=None):
             mountpoint = None
         encrypt_device(storage_location, mountpoint)
         set_flag('layer.vaultlocker.{}.ready'.format(storage_id))
-    set_flag('layer.vaultlocker.{}.ready'.format(storage_name))
+        set_flag('layer.vaultlocker.{}.ready'.format(storage_name))
 
 
 def encrypt_device(device, mountpoint=None):
