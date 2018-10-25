@@ -66,3 +66,11 @@ def encrypt():
 # Reference
 
 More details can be found in the [docs](docs/vaultlocker.md).
+
+# Known Issues
+
+Due to https://bugs.launchpad.net/juju/+bug/1799989 block devices (at least the
+default loop block devices provided by Juju for unattached storage, but likely
+all block devices as well) currently do not work on the localhost / LXD
+provider.  This prevents the charm from deploying at all if there is a
+block-type storage definition in its `metadata.yaml`.
