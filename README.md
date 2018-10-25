@@ -7,8 +7,23 @@ block devices and automatically unlocking them at boot.
 
 ## Using Juju Storage Annotations
 
-The easiest way to use this layer is to define a block device storage
-entry in your `metadata.yaml` and annotate it to be encrypted:
+The easiest way to use this layer is to define a block device storage entry in
+your `metadata.yaml` and annotate it with `vaultlocker-encrypt: true` to mark
+it to be encrypted, and optionally `vaultlocker-mountbase: path` to specify a
+location to have the decrypted mapped device mounted.  The actual mountpoint
+will be `{mountbase}/{storage_name}` for "single" storage endpoints, or
+`{mountbase}/{storage_name}/{storage_id_num}` for "multiple" storage endpoints.
+
+The following flags will be set to let your charm know when your block devices
+have been encrypted and optionally mounted:
+
+* `layer.vaultlocker.{storage_name}.ready` Set when the given storage endpoint
+  has one or more devices encrypted and mounted.
+
+* `layer.vaultlocker.{storage_id}.ready` Set for each device that is encrypted
+  and mounted.
+
+For example:
 
 ```yaml
 storage:
@@ -18,9 +33,9 @@ storage:
     vaultlocker-mountbase: /mnt/myapp
 ```
 
-With that, as long as Vault is related to your charm via the `vault` relataion
-provided by this layer, the `secrets` device will automatically be encrypted
-and an XFS filesystem created on it which will then mounted at
+With that, when Vault is related to your charm via the `vault` relation
+endpoint provided by this layer, the `secrets` device will automatically be
+encrypted and an XFS filesystem created on it which will then mounted at
 `/mnt/myapp/secrets`.
 
 
@@ -51,4 +66,3 @@ def encrypt():
 # Reference
 
 More details can be found in the [docs](docs/vaultlocker.md).
->>>>>>> Stashed changes
