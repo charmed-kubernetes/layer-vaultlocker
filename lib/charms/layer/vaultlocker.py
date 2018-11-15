@@ -60,7 +60,7 @@ def encrypt_device(device, mountpoint=None):
     Set up encryption for the given block device, and optionally create and
     mount an XFS filesystem on the encrypted device.
 
-    If ``mountbase`` is not given, the device will not be formatted or
+    If ``mountpoint`` is not given, the device will not be formatted or
     mounted.  When interacting with or mounting the device manually, the
     name returned by :func:`decrypted_device` called on the device name
     should be used in place of the raw device name.
