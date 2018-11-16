@@ -1,4 +1,0 @@
-hvac
-# needed to prevent apt installs during import
-netifaces
-psutil

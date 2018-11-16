@@ -1,7 +1,7 @@
 repo: foo
 includes:
   - 'layer:apt'
-  - 'interface:vault-kv'
+  - 'layer:vault-kv'
 options:
   apt:
     packages:
