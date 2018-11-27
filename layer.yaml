@@ -1,1 +1,15 @@
-repo: foo
+includes:
+  - 'layer:apt'
+  - 'layer:vault-kv'
+options:
+  apt:
+    packages:
+      - vaultlocker
+proof:
+  storage:
+    - name: vaultlocker-encrypt
+      type: Boolean
+      missing: false
+    - name: vaultlocker-mountbase
+      type: String
+      missing: ''
