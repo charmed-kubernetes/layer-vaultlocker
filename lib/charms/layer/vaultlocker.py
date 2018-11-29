@@ -1,5 +1,6 @@
+import json
 from pathlib import Path
-from subprocess import check_call
+from subprocess import check_call, check_output, CalledProcessError
 from uuid import uuid4
 
 from charms.reactive import set_flag
@@ -15,6 +16,17 @@ from charmhelpers.contrib.storage.linux.utils import (
     is_device_mounted,
     mkfs_xfs,
 )
+
+
+LOOP_ENVS = Path('/etc/vaultlocker/loop-envs')
+
+
+class VaultLockerError(Exception):
+    """
+    Wrapper for exceptions raised when configuring VaultLocker.
+    """
+    def __init__(self, msg, *args, **kwargs):
+        super().__init__(msg.format(*args, **kwargs))
 
 
 def encrypt_storage(storage_name, mountbase=None):
@@ -37,8 +49,8 @@ def encrypt_storage(storage_name, mountbase=None):
     metadata = hookenv.metadata()
     storage_metadata = metadata['storage'][storage_name]
     if storage_metadata['type'] != 'block':
-        raise ValueError('Cannot encrypt non-block storage: '
-                         '{}'.format(storage_name))
+        raise VaultLockerError('Cannot encrypt non-block storage: {}',
+                               storage_name)
     multiple = 'multiple' in storage_metadata
     for storage_id in hookenv.storage_list():
         if not storage_id.startswith(storage_name + '/'):
@@ -55,7 +67,7 @@ def encrypt_storage(storage_name, mountbase=None):
         set_flag('layer.vaultlocker.{}.ready'.format(storage_name))
 
 
-def encrypt_device(device, mountpoint=None):
+def encrypt_device(device, mountpoint=None, uuid=None):
     """
     Set up encryption for the given block device, and optionally create and
     mount an XFS filesystem on the encrypted device.
@@ -66,30 +78,34 @@ def encrypt_device(device, mountpoint=None):
     should be used in place of the raw device name.
     """
     if not is_block_device(device):
-        raise ValueError('Cannot encrypt non-block device: {}'.format(device))
+        raise VaultLockerError('Cannot encrypt non-block device: {}', device)
     if is_device_mounted(device):
-        raise ValueError('Cannot encrypt mounted device: {}'.format(device))
+        raise VaultLockerError('Cannot encrypt mounted device: {}', device)
     hookenv.log('Encrypting device: {}'.format(device))
-    uuid = str(uuid4())
-    check_call(['vaultlocker', 'encrypt', '--uuid', uuid, device])
-    unitdata.kv().set('layer.vaultlocker.uuids.{}'.format(device), uuid)
-    if mountpoint:
-        mapped_device = decrypted_device(device)
-        hookenv.log('Creating filesystem on {} ({})'.format(mapped_device,
-                                                            device))
-        mkfs_xfs(mapped_device)
-        Path(mountpoint).mkdir(mode=0o755, parents=True, exist_ok=True)
-        hookenv.log('Mounting filesystem for {} ({}) at {}'
-                    ''.format(mapped_device, device, mountpoint))
-        host.mount(mapped_device, mountpoint, filesystem='xfs')
-        host.fstab_add(mapped_device, mountpoint, 'xfs', ','.join([
-            "defaults",
-            "nofail",
-            "x-systemd.requires=vaultlocker-decrypt@{uuid}.service".format(
-                uuid=uuid,
-            ),
-            "comment=vaultlocker",
-        ]))
+    if uuid is None:
+        uuid = str(uuid4())
+    try:
+        check_call(['vaultlocker', 'encrypt', '--uuid', uuid, device])
+        unitdata.kv().set('layer.vaultlocker.uuids.{}'.format(device), uuid)
+        if mountpoint:
+            mapped_device = decrypted_device(device)
+            hookenv.log('Creating filesystem on {} ({})'.format(mapped_device,
+                                                                device))
+            mkfs_xfs(mapped_device)
+            Path(mountpoint).mkdir(mode=0o755, parents=True, exist_ok=True)
+            hookenv.log('Mounting filesystem for {} ({}) at {}'
+                        ''.format(mapped_device, device, mountpoint))
+            host.mount(mapped_device, mountpoint, filesystem='xfs')
+            host.fstab_add(mapped_device, mountpoint, 'xfs', ','.join([
+                "defaults",
+                "nofail",
+                "x-systemd.requires=vaultlocker-decrypt@{uuid}.service".format(
+                    uuid=uuid,
+                ),
+                "comment=vaultlocker",
+            ]))
+    except (CalledProcessError, OSError) as e:
+        raise VaultLockerError('Error configuring VaultLocker') from e
 
 
 def decrypted_device(device):
@@ -103,3 +119,68 @@ def decrypted_device(device):
     if not uuid:
         return None
     return '/dev/mapper/crypt-{uuid}'.format(uuid=uuid)
+
+
+def create_encrypted_loop_mount(mount_path, block_size='1M', block_count=20,
+                                backing_file=None):
+    """
+    Creates a persistent loop device, encrypts it, formats it as XFS, and
+    mounts it at the given `mount_path`.
+
+    A backing file will be created under `/var/lib/vaultlocker/backing_files`,
+    in a UUID named file, according to `block_size` and `block_count`
+    parameters, which map to `bs` and `count` of the `dd` command.  Note that
+    the backing file must be a bit over 16M to allow for the XFS file system
+    plus some additional metadata needed for the encryption.  It is not
+    recommended to go below the default of 20M (20 blocks, 1M each).
+
+    The `backing_file` parameter can be used to change the location where the
+    backing file is created.
+    """
+    uuid = str(uuid4())
+    if backing_file is None:
+        backing_file = Path('/var/lib/vaultlocker/backing_files') / uuid
+        backing_file.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        backing_file = Path(backing_file)
+        if backing_file.exists():
+            raise VaultLockerError('Backing file already exists: {}',
+                                   backing_file)
+
+    def _find_loop_device(backing_file):
+        """
+        Search for a loop device matching the given backing file.
+        """
+        output = check_output(['losetup', '--json'])
+        devices = json.loads(output)['loopdevices']
+        device_names = [d['name']
+                        for d in devices
+                        if d['back-file'] == str(backing_file)]
+        if not device_names:
+            raise VaultLockerError('Unable to find loop device')
+        elif len(device_names) > 1:
+            raise VaultLockerError('Too many matching loop devices')
+        else:
+            return device_names[0]
+
+    try:
+        # ensure loop devices are enabled
+        check_call(['modprobe', 'loop'])
+        # create the backing file filled with random data
+        check_call(['dd', 'if=/dev/urandom', 'of={}'.format(backing_file),
+                    'bs=1M', 'count=20'])
+        # claim an unused loop device
+        check_call(['losetup', '-f', backing_file])
+        # find the loop device we claimed
+        device_name = _find_loop_device(backing_file)
+        # encrypt the new loop device
+        encrypt_device(device_name, str(mount_path), uuid)
+        # setup the service to ensure loop device is restored after reboot
+        (LOOP_ENVS / uuid).write_text(''.join([
+            'DEVICE={}\n'.format(device_name),
+            'BACK_FILE={}\n'.format(backing_file),
+        ]))
+        check_call(['systemctl', 'enable',
+                    'vaultlocker-loop@{}.service'.format(uuid)])
+    except (CalledProcessError, OSError) as e:
+        raise VaultLockerError('Error configuring VaultLocker') from e
