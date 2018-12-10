@@ -1,9 +1,25 @@
 import shutil
 
 from charms.reactive import when_all, when_not, set_flag, clear_flag
-from charmhelpers.core import hookenv
+from charmhelpers.core import hookenv, host
 
+from charms import apt
 from charms import layer
+
+
+@when_not('apt.installed.vaultlocker')
+def install_vaultlocker():
+    '''Install vaultlocker.
+
+    On bionic and higher, vaultlocker is available in the default system
+    sources. For xenial, we need to add the queens cloud archive.
+    '''
+    dist = host.lsb_release()
+    dist_series = dist['DISTRIB_CODENAME'].lower()
+    if dist_series == 'xenial':
+        apt.add_source('cloud:queens')
+        apt.update()
+    apt.queue_install(['vaultlocker'])
 
 
 @when_all('apt.installed.vaultlocker',
