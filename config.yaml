@@ -1,4 +1,0 @@
-options:
-  install_sources:
-    default: |
-      - ppa:openstack-charmers/vaultlocker
