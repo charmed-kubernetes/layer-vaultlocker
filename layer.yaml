@@ -1,10 +1,6 @@
 includes:
   - 'layer:apt'
   - 'layer:vault-kv'
-options:
-  apt:
-    packages:
-      - vaultlocker
 proof:
   storage:
     - name: vaultlocker-encrypt
