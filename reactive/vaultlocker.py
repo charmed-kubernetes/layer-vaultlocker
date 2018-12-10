@@ -17,7 +17,7 @@ def install_vaultlocker():
     dist = host.lsb_release()
     dist_series = dist['DISTRIB_CODENAME'].lower()
     if dist_series == 'xenial':
-        apt.add_source('cloud-archive:queens')
+        apt.add_source('cloud:queens')
         apt.update()
     apt.queue_install(['vaultlocker'])
 
