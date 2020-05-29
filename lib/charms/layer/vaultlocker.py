@@ -170,7 +170,7 @@ def create_encrypted_loop_mount(mount_path, block_size='1M', block_count=20,
         check_call(['dd', 'if=/dev/urandom', 'of={}'.format(backing_file),
                     'bs=1M', 'count=20'])
         # claim an unused loop device
-        check_call(['losetup', '-f', backing_file])
+        check_call(['losetup', '-f', str(backing_file)])
         # find the loop device we claimed
         device_name = _find_loop_device(backing_file)
         # encrypt the new loop device
