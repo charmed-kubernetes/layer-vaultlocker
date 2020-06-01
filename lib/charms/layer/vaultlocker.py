@@ -168,7 +168,7 @@ def create_encrypted_loop_mount(mount_path, block_size='1M', block_count=20,
         check_call(['modprobe', 'loop'])
         # create the backing file filled with random data
         check_call(['dd', 'if=/dev/urandom', 'of={}'.format(backing_file),
-                    'bs=1M', 'count=20'])
+                    'bs=8M', 'count=4'])
         # claim an unused loop device
         check_call(['losetup', '-f', str(backing_file)])
         # find the loop device we claimed
