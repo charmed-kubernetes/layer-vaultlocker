@@ -91,6 +91,8 @@ def encrypt_device(device, mountpoint=None, uuid=None):
             mapped_device = decrypted_device(device)
             hookenv.log('Creating filesystem on {} ({})'.format(mapped_device,
                                                                 device))
+            # If this fails, it's probalby due to the size of the loopback
+            #    backing file that is defined by the `dd`.
             mkfs_xfs(mapped_device)
             Path(mountpoint).mkdir(mode=0o755, parents=True, exist_ok=True)
             hookenv.log('Mounting filesystem for {} ({}) at {}'
