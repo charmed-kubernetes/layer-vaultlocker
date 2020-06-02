@@ -91,6 +91,8 @@ def encrypt_device(device, mountpoint=None, uuid=None):
             mapped_device = decrypted_device(device)
             hookenv.log('Creating filesystem on {} ({})'.format(mapped_device,
                                                                 device))
+            # If this fails, it's probalby due to the size of the loopback
+            #    backing file that is defined by the `dd`.
             mkfs_xfs(mapped_device)
             Path(mountpoint).mkdir(mode=0o755, parents=True, exist_ok=True)
             hookenv.log('Mounting filesystem for {} ({}) at {}'
@@ -168,7 +170,7 @@ def create_encrypted_loop_mount(mount_path, block_size='1M', block_count=20,
         check_call(['modprobe', 'loop'])
         # create the backing file filled with random data
         check_call(['dd', 'if=/dev/urandom', 'of={}'.format(backing_file),
-                    'bs=1M', 'count=20'])
+                    'bs=8M', 'count=4'])
         # claim an unused loop device
         check_call(['losetup', '-f', str(backing_file)])
         # find the loop device we claimed
