@@ -9,4 +9,4 @@ Before=vaultlocker-decrypt@%i.service
 Type=oneshot
 RemainAfterExit=true
 EnvironmentFile=/etc/vaultlocker/loop-envs/%i
-ExecStart=/sbin/losetup ${DEVICE} ${BACK_FILE}
+ExecStart=/sbin/losetup -f ${BACK_FILE}
