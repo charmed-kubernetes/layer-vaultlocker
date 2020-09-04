@@ -149,22 +149,6 @@ def create_encrypted_loop_mount(mount_path, block_size='1M', block_count=20,
             raise VaultLockerError('Backing file already exists: {}',
                                    backing_file)
 
-    def _find_loop_device(backing_file):
-        """
-        Search for a loop device matching the given backing file.
-        """
-        output = check_output(['losetup', '--json'])
-        devices = json.loads(output)['loopdevices']
-        device_names = [d['name']
-                        for d in devices
-                        if d['back-file'] == str(backing_file)]
-        if not device_names:
-            raise VaultLockerError('Unable to find loop device')
-        elif len(device_names) > 1:
-            raise VaultLockerError('Too many matching loop devices')
-        else:
-            return device_names[0]
-
     try:
         # ensure loop devices are enabled
         check_call(['modprobe', 'loop'])
@@ -172,14 +156,12 @@ def create_encrypted_loop_mount(mount_path, block_size='1M', block_count=20,
         check_call(['dd', 'if=/dev/urandom', 'of={}'.format(backing_file),
                     'bs=8M', 'count=4'])
         # claim an unused loop device
-        check_call(['losetup', '-f', str(backing_file)])
-        # find the loop device we claimed
-        device_name = _find_loop_device(backing_file)
+        output = check_output(['losetup', '--show', '-f', str(backing_file)])
+        device_name = output.decode('utf8').strip()
         # encrypt the new loop device
         encrypt_device(device_name, str(mount_path), uuid)
         # setup the service to ensure loop device is restored after reboot
         (LOOP_ENVS / uuid).write_text(''.join([
-            'DEVICE={}\n'.format(device_name),
             'BACK_FILE={}\n'.format(backing_file),
         ]))
         check_call(['systemctl', 'enable',
